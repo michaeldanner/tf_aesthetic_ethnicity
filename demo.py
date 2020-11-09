@@ -17,18 +17,18 @@ def get_args():
     parser = argparse.ArgumentParser(description="This script detects faces from web cam input, "
                                                  "and estimates age and gender for the detected faces.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--weight_file", type=str, default=None,
+    parser.add_argument("--weight_file", type=str, default="./checkpoint/ResNet50_224_weights.05-3.80.hdf5",
                         help="path to weight file (e.g. weights.28-3.73.hdf5)")
-    parser.add_argument("--margin", type=float, default=0.4,
+    parser.add_argument("--margin", type=float, default=1,
                         help="margin around detected face for age-gender estimation")
-    parser.add_argument("--image_dir", type=str, default=None,
+    parser.add_argument("--image_dir", type=str, default="./data/val_asian/",
                         help="target image directory; if set, images in image_dir are used instead of webcam")
     args = parser.parse_args()
     return args
 
 
 def draw_label(image, point, label, font=cv2.FONT_HERSHEY_SIMPLEX,
-               font_scale=0.8, thickness=1):
+               font_scale=1.5, thickness=2):
     size = cv2.getTextSize(label, font, font_scale, thickness)[0]
     x, y = point
     # cv2.rectangle(image, (x, y - size[1]), (x + size[0], y), (255, 0, 0), cv2.FILLED)
@@ -122,8 +122,8 @@ def main():
             # draw results
             for i, d in enumerate(detected):
                 label = "{}, {}".format(round(predicted_attractive[i]/10, 1),
-                                        "M" if predicted_asian[i][0] < 0.5 else "F")
-                label = "{}".format(round(predicted_attractive[i] / 10, 1))
+                                        "Asian" if predicted_asian[i][0] < 0.5 else "White")
+
                 draw_label(img, (d.left(), d.top()), label)
 
         cv2.imshow("result", img)
