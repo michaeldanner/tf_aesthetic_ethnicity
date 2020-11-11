@@ -17,9 +17,9 @@ def get_args():
     parser = argparse.ArgumentParser(description="This script detects faces from web cam input, "
                                                  "and estimates age and gender for the detected faces.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--weight_file", type=str, default="./checkpoint/ResNet50_224_weights.05-3.80.hdf5",
+    parser.add_argument("--weight_file", type=str, default="./checkpoint/ResNet50_224_weights.28-3.67.hdf5",
                         help="path to weight file (e.g. weights.28-3.73.hdf5)")
-    parser.add_argument("--margin", type=float, default=1,
+    parser.add_argument("--margin", type=float, default=0.3,
                         help="margin around detected face for age-gender estimation")
     parser.add_argument("--image_dir", type=str, default="./data/val_asian/",
                         help="target image directory; if set, images in image_dir are used instead of webcam")
@@ -69,12 +69,15 @@ def yield_images_from_dir(image_dir):
         if img is not None:
             h, w, _ = img.shape
             r = 640 / max(w, h)
-            yield cv2.resize(img, (int(w * r), int(h * r)))
+            yield cv2.resize(img, (int(w * r), int(h * r))), image_path
 
 
 def main():
     args = get_args()
-    weight_file = args.weight_file
+    weight_file = "./checkpoint/ResNet50_224_weights.28-3.67.hdf5"  # 0.96
+    weight_file = "./checkpoint/ResNet50_224_weights.17-3.83.hdf5"  # 1.52
+    weight_file = "./checkpoint/ResNet50_224_weights.30-3.79.hdf5"  # 1.70
+
     margin = args.margin
     image_dir = args.image_dir
 
@@ -92,9 +95,10 @@ def main():
     model = get_model(cfg)
     model.load_weights(weight_file)
 
-    image_generator = yield_images_from_dir(image_dir) if image_dir else yield_images()
-
-    for img in image_generator:
+    # image_generator, filepath = yield_images_from_dir(image_dir) if image_dir else yield_images()
+    error = 0.0
+    amount = 0
+    for img, path in yield_images_from_dir(image_dir):
         input_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_h, img_w, _ = np.shape(input_img)
 
@@ -102,7 +106,7 @@ def main():
         detected = detector(input_img, 1)
         faces = np.empty((len(detected), img_size, img_size, 3))
 
-        if len(detected) > 0:
+        if len(detected) == 1:
             for i, d in enumerate(detected):
                 x1, y1, x2, y2, w, h = d.left(), d.top(), d.right() + 1, d.bottom() + 1, d.width(), d.height()
                 xw1 = max(int(x1 - margin * w), 0)
@@ -123,14 +127,27 @@ def main():
             for i, d in enumerate(detected):
                 label = "{}, {}".format(round(predicted_attractive[i]/10, 1),
                                         "Asian" if predicted_asian[i][0] < 0.5 else "White")
-
+                attr = "{}".format(round(predicted_attractive[i]/10, 1))
+                path = str(path).split("\\")[-1]
+                path = path.split("_AGE")[0]
+                score, name = path.split("_", 1)
+                score = float(score) * 115 - 9
+                score = round(score/10, 1)
+                error += (float(attr) - score)**2
+                amount += 1
                 draw_label(img, (d.left(), d.top()), label)
+            show = False
+            if show:
+                cv2.imshow("result", img)
+                key = cv2.waitKey(-1) if image_dir else cv2.waitKey(30)
 
-        cv2.imshow("result", img)
-        key = cv2.waitKey(-1) if image_dir else cv2.waitKey(30)
+                if key == 27:  # ESC
+                    break
+            else:
+                cv2.imwrite("D:\\output\\" + str(attr) + "_" + str(score) + "_" + name + ".jpg", img)
 
-        if key == 27:  # ESC
-            break
+        mean_error = error / amount
+        print("MSE: " + str(mean_error))
 
 
 if __name__ == '__main__':
