@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import LearningRateScheduler, ModelCheckpoint
 from src.factory import get_model, get_optimizer, get_scheduler
 from src.generator import ImageSequence
+import os
 
 
 @hydra.main(config_path="src/config.yaml")
@@ -52,6 +53,8 @@ def main(cfg):
 
     model.fit(train_gen, epochs=cfg.train.epochs, callbacks=callbacks, validation_data=val_gen,
               workers=multiprocessing.cpu_count())
+
+    model.save(os.path.join(wandb.run.dir, "model.h5"))
 
 
 if __name__ == '__main__':
