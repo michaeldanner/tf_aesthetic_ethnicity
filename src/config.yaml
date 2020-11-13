@@ -12,4 +12,4 @@ train:
   batch_size: 32
 
 wandb:
-  project: null
+  project: attractiveness
